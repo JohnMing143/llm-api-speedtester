@@ -3,7 +3,6 @@
 这是一个部署在 Cloudflare Worker 上的小工具，用于测试大语言模型 (LLM) API 的调用速度和性能。它可以测量不同输入和输出 Token 组合下的吞吐量 (tokens/sec) 和首个 Token 的平均响应延迟。
 
 ![工具截图](placeholder.png)
-*(请将 placeholder.png 替换为你的工具截图链接或图片)*
 
 ## ✨ 功能特性
 
@@ -101,4 +100,3 @@
 ## 📄 开源许可
 
 本项目采用 [MIT License](LICENSE) 开源。
-*(如果你添加了 LICENSE 文件，请确保文件名正确)*
