@@ -1,6 +1,4 @@
 // worker.js
-// 在 Cloudflare Worker 在线编辑器或你的本地 worker.js 文件中使用
-
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -13,10 +11,12 @@ export default {
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
           <title>API 速度测试</title>
+          <!-- 引入 html2canvas 库 -->
+          <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" integrity="sha512-BNaRQnYJYiPSqHHDb58B0yaPfCu+Wgds8Gp/gU33kqBtgNS4tSPHuGibyoeqMV/TJlSKda6FXzoEyYGjTe+vXA==" crossorigin="anonymous" referrerpolicy="no-referrer"><\/script>
           <style>
               body {
                   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-                  background-color: #1e1e2f; /* Dark blue-ish background */
+                  background-color: #1e1e2f;
                   color: #e0e0e0;
                   margin: 0;
                   padding: 20px;
@@ -32,7 +32,7 @@ export default {
                   margin-bottom: 20px;
               }
               .controls {
-                  background-color: #2a2a40; /* Slightly lighter card background */
+                  background-color: #2a2a40;
                   padding: 20px;
                   border-radius: 8px;
                   margin-bottom: 30px;
@@ -47,8 +47,8 @@ export default {
               .input-group input[type="text"], .input-group input[type="password"] {
                   flex-grow: 1;
                   padding: 10px;
-                  background-color: #3a3a52; /* Input background */
-                  border: 1px solid #4f4f6e; /* Input border */
+                  background-color: #3a3a52;
+                  border: 1px solid #4f4f6e;
                   color: #e0e0e0;
                   border-radius: 4px;
                   font-size: 14px;
@@ -65,17 +65,18 @@ export default {
                   transition: background-color 0.3s ease;
               }
               .test-button {
-                  background-color: #4a4a70; /* Darker purple/blue */
+                  background-color: #4a4a70;
                   color: white;
               }
               .test-button:hover {
                   background-color: #5a5a80;
               }
-              .share-button {
-                  background-color: #28a745; /* Green */
+              .share-button, .screenshot-button { /* Added .screenshot-button styling */
+                  background-color: #28a745;
                   color: white;
+                  margin-left: 10px; /* Add some space if next to another button */
               }
-              .share-button:hover {
+              .share-button:hover, .screenshot-button:hover {
                   background-color: #218838;
               }
               .description {
@@ -84,7 +85,8 @@ export default {
                   margin-bottom: 20px;
                   line-height: 1.6;
               }
-              .results-grid {
+              /* Added an ID to the results grid container for easier selection */
+              #resultsContainer {
                   display: grid;
                   grid-template-columns: 1fr 1fr;
                   gap: 30px;
@@ -116,9 +118,9 @@ export default {
               }
               th, td {
                   border: 1px solid #4f4f6e;
-                  padding: 8px 5px; /* Reduced padding for more cells */
+                  padding: 8px 5px;
                   text-align: center;
-                  min-width: 50px; /* Ensure cells have some width */
+                  min-width: 50px;
                   font-size: 0.85em;
               }
               th {
@@ -147,7 +149,7 @@ export default {
                   background-color: #3a3a52;
                   border-radius: 4px;
                   text-align: center;
-                  display: none; /* Hidden by default */
+                  display: none;
               }
               .loader {
                   border: 3px solid #f3f3f330;
@@ -180,7 +182,8 @@ export default {
                   </div>
                   <div class="input-group">
                       <button id="testButton" class="test-button">测速</button>
-                      <button id="shareButton" class="share-button" title="功能暂未实现">分享结果</button>
+                      <!-- Changed shareButton to screenshotButton -->
+                      <button id="screenshotButton" class="screenshot-button">截图结果并下载</button>
                   </div>
                   <div class="description">
                       本工具可测试你的 LLM 接口速度和延迟，分别测量吞吐量 (tokens/sec) 和首 token 响应时间 (平均延迟)，支持多种输入输出 token 组合。输入接口地址和 (可选) API Token，点击“测速”即可。
@@ -189,7 +192,8 @@ export default {
 
               <div id="statusMessage" class="status-message"></div>
 
-              <div class="results-grid">
+              <!-- Added ID to the results grid container -->
+              <div id="resultsContainer" class="results-grid">
                   <div class="grid-section">
                       <h2>性能图</h2>
                       <p class="subtitle">吞吐量 (每秒 token 数) - 数值越高越好</p>
@@ -210,9 +214,13 @@ export default {
           </div>
 
           <script>
+              // Ensure html2canvas is loaded before assigning to window for global access if needed,
+              // but direct usage is fine here.
+              // window.html2canvas = html2canvas; // Usually not necessary if used within this script block
+
               const INPUT_TOKEN_SIZES = [128, 256, 512, 1024, 2048];
               const OUTPUT_TOKEN_SIZES = [128, 256, 512, 1024, 2048];
-              const NUM_RUNS_PER_CELL = 3; // Number of runs to average for latency/throughput
+              const NUM_RUNS_PER_CELL = 3;
 
               const apiUrlInput = document.getElementById('apiUrl');
               const modelNameInput = document.getElementById('modelName');
@@ -221,6 +229,8 @@ export default {
               const statusMessage = document.getElementById('statusMessage');
               const throughputTable = document.getElementById('throughputTable');
               const latencyTable = document.getElementById('latencyTable');
+              const screenshotButton = document.getElementById('screenshotButton'); // Get the new button
+              const resultsContainer = document.getElementById('resultsContainer'); // Get the container to screenshot
 
               function generateDummyText(numTokens) {
                   const charsPerToken = 4;
@@ -310,7 +320,6 @@ export default {
                   return \`hsl(\${hue}, 60%, 40%)\`;
               }
 
-
               async function testApiEndpoint(apiUrl, modelName, apiToken, inTokens, outTokens) {
                   const promptText = generateDummyText(inTokens);
                   const headers = {
@@ -363,7 +372,7 @@ export default {
                               }
                               
                               buffer += decoder.decode(value, { stream: true });
-                              let lines = buffer.split('\\n\\n'); // Escaped newline characters
+                              let lines = buffer.split('\\n\\n');
                               buffer = lines.pop() || ''; 
 
                               for (const line of lines) {
@@ -381,7 +390,7 @@ export default {
                                   }
                               }
                           }
-                          if (buffer.startsWith('data: ')) {
+                           if (buffer.startsWith('data: ')) {
                                const jsonData = buffer.substring(6);
                                if (jsonData.trim() !== '[DONE]') {
                                    try {
@@ -392,6 +401,7 @@ export default {
                                    } catch (e) {/* ignore */}
                                }
                           }
+
 
                           const endTime = performance.now();
 
@@ -439,6 +449,7 @@ export default {
                   }
 
                   testButton.disabled = true;
+                  screenshotButton.disabled = true; // Disable screenshot button during test
                   testButton.innerHTML = '测试中... <span class="loader"></span>';
                   statusMessage.textContent = "测试正在进行中，请稍候...";
                   statusMessage.style.backgroundColor = '#3a3a52';
@@ -478,31 +489,58 @@ export default {
                   });
 
                   testButton.disabled = false;
+                  screenshotButton.disabled = false; // Re-enable screenshot button
                   testButton.innerHTML = '测速';
                   statusMessage.textContent = "测试完成！";
                   statusMessage.style.backgroundColor = '#28a745';
                    setTimeout(() => { statusMessage.style.display = 'none'; }, 5000);
               }
 
+              function captureAndDownloadResults() {
+                  if (!resultsContainer || typeof html2canvas === 'undefined') {
+                      alert('无法截图，截图组件未加载或结果区域不存在。');
+                      return;
+                  }
+                  statusMessage.textContent = "正在生成截图...";
+                  statusMessage.style.display = 'block';
+                  statusMessage.style.backgroundColor = '#3a3a52';
+
+                  html2canvas(resultsContainer, { 
+                      backgroundColor: '#1e1e2f', // Match body background for consistency
+                      useCORS: true // If you have external images/fonts, though not in this case
+                  }).then(canvas => {
+                      const link = document.createElement('a');
+                      link.download = 'llm-test-results.png';
+                      link.href = canvas.toDataURL('image/png');
+                      link.click();
+                      statusMessage.textContent = "截图已下载！";
+                      statusMessage.style.backgroundColor = '#28a745';
+                      setTimeout(() => { statusMessage.style.display = 'none'; }, 3000);
+                  }).catch(err => {
+                      console.error("截图失败:", err);
+                      alert("截图失败，请查看控制台获取更多信息。");
+                      statusMessage.textContent = "截图失败！";
+                      statusMessage.style.backgroundColor = '#702020';
+                      setTimeout(() => { statusMessage.style.display = 'none'; }, 3000);
+                  });
+              }
+
               document.addEventListener('DOMContentLoaded', () => {
                   createTable(throughputTable, " t/s", true);
                   createTable(latencyTable, " s", false);
                   testButton.addEventListener('click', runAllTests);
-                  document.getElementById('shareButton').addEventListener('click', () => {
-                      alert('分享功能暂未实现。您可以截图分享结果！');
-                  });
+                  screenshotButton.addEventListener('click', captureAndDownloadResults); // Attach event to new button
               });
           <\/script> 
           </body>
           </html>
-      `; // End of htmlContent template literal
+      `;
 
       return new Response(htmlContent, {
         headers: { 'Content-Type': 'text/html;charset=UTF-8' },
       });
 
     } else {
-      // Handle other paths or methods, or return 404
       return new Response('Not Found. Access the root path to use the tool.', { status: 404 });
     }
   }
