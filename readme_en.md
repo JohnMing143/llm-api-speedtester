@@ -90,7 +90,7 @@ This tool is designed for deployment as a single `worker.js` file, embedding all
 
 *   [ ] Support for importing/exporting test configurations and results.
 *   [ ] More accurate token calculation (if a lightweight tokenizer can be integrated).
-*   [ ] Backend implementation for the "Share Results" feature.
+*   [x] Backend implementation for the "Share Results" feature.
 *   [ ] Visual charts to display historical test data.
 
 ## 🤝 Contributing
